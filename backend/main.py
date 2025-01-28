@@ -3,19 +3,17 @@ import ffmpeg
 import whisper
 
 def transcribe_audio(audio_path):
-    model = whisper.load_model("large")  
+    model = whisper.load_model("small")  
     result = model.transcribe(audio_path, word_timestamps=True)
     return result["segments"]  
 
-def save_as_srt(transcription, output_srt="transcription.srt"):
+def save_as_srt(transcription, output_srt="transcribs/transcription.srt"):
     with open(output_srt, "w", encoding="utf-8") as srt_file:
         for i, segment in enumerate(transcription, start=1):
             start_time = format_timestamp(segment["start"])
             end_time = format_timestamp(segment["end"])
             text = segment["text"]
 
-            srt_file.write(f"{i}\n")
-            srt_file.write(f"{start_time} --> {end_time}\n")
             srt_file.write(f"{text}\n\n")
     
     print(f"Saved transcription as {output_srt}")
@@ -39,7 +37,7 @@ def download_audio(youtube_url, output_path="transcribs/audio"):
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([youtube_url])
     
-    return output_path
+    return output_path + ".mp3"
 
 
 def main():
