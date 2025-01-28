@@ -1,0 +1,1 @@
+atakan als je dit leest ben je een bolle turk
