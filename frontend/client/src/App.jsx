@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useEffect } from "react";
 
 function HomePage() {
   const [step, setStep] = useState(1);
@@ -9,43 +10,92 @@ function HomePage() {
   const [approvedKeywords, setApprovedKeywords] = useState(new Set());
   const [terminalOutput, setTerminalOutput] = useState([]);
   const [generatedScript, setGeneratedScript] = useState("");
+  useEffect(() => {
+    if (step === 1) {
+      const resetData = async () => {
+        try {
+          const response = await fetch("http://localhost:3000/reset");
+          if (response.ok) {
+            const data = await response.json();
+            console.log("Reset: ", data);
+          } else {
+            console.error("Reset failed with status", response.status);
+          }
+        } catch (error) {
+          console.error("Reset error:", error);
+        }
+      };
 
-  const handleGenerate = () => {
-    if (topic.trim()) {
-      setLoading(true);
-      setTimeout(() => {
-        setKeywords(["Cool dude", "Cool guy", "Guy that is cool"]);
-        setLoading(false);
-        setStep(2);
-      }, 2000);
+      resetData();
     }
-  };
+  }, [step]);
+const handleGenerate = async () => {
+  if (!topic.trim()) return;
 
-  const simulateTerminal = () => {
-    const messages = [
-      "Connecting to video database...",
-      "Searching for relevant content...",
-      "Found 23 potential video sources",
-      "Analyzing transcripts...",
-      "Generating script structure...",
-      "Optimizing content flow..."
-    ];
-
-    messages.forEach((msg, index) => {
-      setTimeout(() => {
-        setTerminalOutput(prev => [...prev, msg]);
-      }, index * 800);
+  setLoading(true);
+  try {
+    const response = await fetch("http://localhost:8000/queue-keywords", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ "topic":topic }) 
     });
+    if (!response.ok) throw new Error('Failed to queue keywords job');
 
-    setTimeout(() => {
-      setGeneratedScript(`[Opening Scene]
-Host: "Hey everyone! Today we're talking about ${topic}...
-[Cut to B-roll]
-Narration: "What makes this so interesting is... 
-[Closing Scene]
-Host: "Don't forget to like and subscribe!"`);
+    const data = await response.json();
+    console.log("Queued job:", data);
+
+
+    pollForKeywords(); 
+
+  } catch (error) {
+    console.error("API Error:", error);
+    setTerminalOutput([`Error: ${error.message}`]);
+  }
+};
+
+const pollForKeywords = async () => {
+  const intervalId = setInterval(async () => {
+    try {
+      const response = await fetch("http://localhost:3000/latest-data");
+      if (response.ok) {
+        const data = await response.json();
+        setLoading(false)
+      
+        setKeywords(data.keywords || []);
+        console.log("Received keywords from Node server:", data.keywords);
+
+        clearInterval(intervalId);
+
+        setStep(2);
+      }
+    } catch (err) {
+      console.log("Still no data... waiting.",err);
+    }
+  }, 3000);
+};
+
+  const simulateTerminal = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/generate-script', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          topic,
+          keywords: Array.from(approvedKeywords).map(i => keywords[i])
+        })
+      });
+      
+      const data = await response.json();
+      setGeneratedScript(data.script);
       setStep(4);
-    }, messages.length * 800 + 1000);
+    } catch (error) {
+      console.error("Script generation error:", error);
+      setTerminalOutput(prev => [...prev, `Error: ${error.message}`]);
+    }
   };
 
   const handleGenerateScript = () => {
@@ -105,13 +155,39 @@ Host: "Don't forget to like and subscribe!"`);
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
                 />
-                <button
-                  className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-all"
-                  onClick={handleGenerate}
-                  disabled={loading}
-                >
-                  {loading ? 'Generating...' : 'Start Creation'}
-                </button>
+                 <button
+    className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-all relative"
+    onClick={handleGenerate}
+    disabled={loading}
+  >
+    {loading ? (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="flex items-center justify-center"
+      >
+        <motion.svg
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="h-5 w-5 mr-2"
+          viewBox="0 0 24 24"
+        >
+          <path
+            fill="currentColor"
+            d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"
+          />
+        </motion.svg>
+        Generating Keywords...
+      </motion.div>
+    ) : (
+      <motion.span
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+      >
+        Start Creation
+      </motion.span>
+    )}
+  </button>
               </div>
             </motion.div>
           )}
@@ -127,17 +203,19 @@ Host: "Don't forget to like and subscribe!"`);
             >
               <h3 className="text-2xl text-center font-bold mb-6">Select Keywords</h3>
               <div className="grid grid-cols-1 gap-3 mb-6">
-                {keywords.map((item, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className={`p-3 rounded-lg flex items-center justify-between ${
-                      approvedKeywords.has(index)
-                        ? "bg-green-500/20 border border-green-500/30"
-                        : "bg-gray-900/50 border border-gray-700/50"
-                    }`}
-                  >
+              {keywords.map((item, index) => (
+      <motion.div
+        key={index}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, x: -50 }}
+        transition={{ delay: index * 0.1 }}
+        className={`p-3 rounded-lg flex items-center justify-between ${
+          approvedKeywords.has(index)
+            ? "bg-green-500/20 border border-green-500/30"
+            : "bg-gray-900/50 border border-gray-700/50"
+        }`}
+      >
                     <span className="text-gray-200">{item}</span>
                     <button
                       onClick={() => handleApprove(index)}
