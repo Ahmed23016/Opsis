@@ -3,7 +3,7 @@ import os
 import json
 import logging
 from typing import List, Optional, Dict
-
+from news.main import main
 from fastapi import FastAPI, HTTPException, Query, BackgroundTasks, Body
 from pydantic import BaseModel, ValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -47,6 +47,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class Article(BaseModel):
+    source: str
+    title: str
+    topic: str
+    content: str
+
+class NewsResponse(BaseModel):
+    articles: List[Article]
 
 class TweetNode(BaseModel):
     text: str
@@ -108,7 +118,16 @@ def process_and_callback(payload: object, callback_url: str):
     except requests.RequestException as e:
         logging.error(f"Failed to call back {callback_url}: {e}")
         print(f"⚠️ Failed to call back {callback_url}: {e}")
+@app.get("/search/news", response_model=NewsResponse)
+async def search_news(topic: str):
+    articles = await main(topic)
+    
+    if not isinstance(articles, list):
+        articles = []
 
+    return NewsResponse(articles=articles) 
+
+    
 @app.post("/search", response_model=SearchResponse)
 async def search_tweets(topic: str = Query(..., description="The topic to search for tweets.")):
     SEARCH_QUERY = topic  

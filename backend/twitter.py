@@ -28,8 +28,8 @@ client.http = client.http.__class__(
     headers={
         'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0',
         'Content-Type': 'application/json',
-        'Origin': 'https://x.com',
-        'Referer': 'https://x.com/',
+        'Origin': 'https://google.com',
+        'Referer': 'https://google.com/',
         'DNT': '1'
     },
     timeout=Timeout(45.0)

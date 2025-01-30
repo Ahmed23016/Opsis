@@ -5,22 +5,28 @@ import { useEffect } from "react";
 function HomePage() {
   const [step, setStep] = useState(1);
   const [topic, setTopic] = useState("");
-  const [selectedThread, setSelectedThread] = useState(null);
   const [expandedThreads, setExpandedThreads] = useState(new Set());
   const [keywords, setKeywords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [terminalOutput, setTerminalOutput] = useState([]);
   const [generatedScript, setGeneratedScript] = useState("");
-
+  const [newsArticles,setNewsArticles]=useState([]);
+  const [selectedArticle, setSelectedArticle] = useState(null);
+  const handleSelectArticle = (article) => {
+    setSelectedArticle(article);
+    setNewsArticles([article]); 
+  };
   useEffect(() => {
     if (step === 1) {
       const resetData = async () => {
         try {
+
           const response = await fetch("http://localhost:3000/reset");
           if (response.ok) {
             const data = await response.json();
             console.log("Reset: ", data);
+            setExpandedThreads(new Set())
           }
         } catch (error) {
           console.error("Reset error:", error);
@@ -65,22 +71,47 @@ function HomePage() {
       }
     }, 3000);
   };
-
+  const fetchNews = async () => {
+    if (selectedIndex === null) return;  
+    try {
+      const selectedKeyword = keywords[selectedIndex];
+      const response = await fetch(
+        `http://localhost:8000/search/news?topic=${encodeURIComponent(selectedKeyword)}`,
+        { method: 'GET' }
+      );
+  
+      if (!response.ok) throw new Error('Failed to fetch news articles');
+  
+      const data = await response.json();
+      setNewsArticles(data.articles || []);  
+    } catch (error) {
+      console.error("News fetch error:", error);
+      setTerminalOutput(prev => [...prev, `Error: ${error.message}`]);
+    }
+  };
+  
   const fetchTweets = async () => {
+    if (selectedIndex === null) return; 
     try {
       const selectedKeyword = keywords[selectedIndex];
       const response = await fetch(
         `http://localhost:8000/search?topic=${encodeURIComponent(selectedKeyword)}`,
         { method: 'POST' }
       );
-      
+  
       if (!response.ok) throw new Error('Failed to fetch tweets');
+  
       const data = await response.json();
-      
-      const processedThreads = data.threads.map(thread => 
+      if (!data.threads || data.threads.length === 0) {  
+        console.log("No threads found");
+        setGeneratedScript([]);
+        return;
+      }
+  
+      const processedThreads = data.threads.map(thread =>
         parseThreadTree(thread.tweets)
       );
-      
+  
       setGeneratedScript(processedThreads);
       setStep(4);
     } catch (error) {
@@ -88,6 +119,13 @@ function HomePage() {
       setTerminalOutput(prev => [...prev, `Error: ${error.message}`]);
     }
   };
+  useEffect(() => {
+    if (selectedIndex !== null) {
+      fetchNews();
+      fetchTweets();
+    }
+  }, [selectedIndex]);  
+  
   const parseThreadTree = (tweetNode) => {
     if (!tweetNode) return null;
     
@@ -142,11 +180,12 @@ function HomePage() {
     }
     setStep(3);
     setTerminalOutput([]);
+    fetchNews();
     fetchTweets();
   };
 
   const handleApprove = (index) => {
-    setSelectedIndex(prev => prev === index ? null : index);
+    setSelectedIndex(index);
   };
 
   const stepVariants = {
@@ -158,8 +197,9 @@ function HomePage() {
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center relative">
       <div className="absolute inset-0 bg-gradient-to-b from-gray-900 to-black opacity-80"></div>
-
+     
       <header className="w-full py-12 relative z-10">
+    
         <motion.div
           className="max-w-3xl mx-auto text-center"
           initial={{ opacity: 0, y: -30 }}
@@ -225,16 +265,16 @@ function HomePage() {
                   )}
                 </button>
                 <button
-                  className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-all relative"
-                  onClick={()=>{
-                    setKeywords([topic])
+  className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-all relative"
+  onClick={() => {
+    setKeywords([topic]);  
+    setSelectedIndex(0);  
+    setStep(3); 
+  }}
+>
+  Go to Online Research Analysis
+</button>
 
-                    setSelectedIndex(0)
-                    console.log(keywords)
-                    fetchTweets();
-                    setStep(3)
-                  }}
-                  >Go to Online Research Analysis</button>
                   
               </div>
             </motion.div>
@@ -298,7 +338,7 @@ function HomePage() {
             >
               <div className="terminal-container bg-black p-4 rounded-lg font-mono text-sm">
                 <div className="terminal-header text-gray-400 mb-4">
-                  Twitter Search Engine v1.0
+                  Opsis Engine v1.0
                 </div>
                 <div className="terminal-content text-green-400 space-y-2">
                   {terminalOutput.map((line, index) => (
@@ -307,7 +347,12 @@ function HomePage() {
                     </div>
                   ))}
                   {terminalOutput.length === 0 && (
+                    <>
                     <div className="text-gray-500">Searching Twitter for relevant content...</div>
+                    <div className="text-gray-500">Searching News Articles for relevant content...</div>
+                    <div className="text-gray-500">Searching Youtube Videos for relevant content...</div>
+
+                    </>
                   )}
                 </div>
                 <div className="mt-4 h-1 bg-gray-700 rounded-full overflow-hidden">
@@ -323,7 +368,36 @@ function HomePage() {
           )}
 
 {step === 4 && (
-    <motion.div
+   <div className="flex flex-row gap-4"> <motion.div
+   key="step4"
+   variants={stepVariants}
+   initial="hidden"
+   animate="visible"
+   exit="exit"
+   className="w-full p-6 bg-gray-800 rounded-xl shadow-lg backdrop-blur-lg bg-opacity-20 max-w-4xl"
+ >
+   <h3 className="text-2xl text-center font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-300">
+     Thread Analysis
+   </h3>
+   <div className="bg-gray-900 p-6 rounded-lg max-h-[70vh] overflow-y-auto custom-scrollbar">
+     {generatedScript.length > 0 ? (
+       generatedScript.map((thread, index) => (
+         <div key={thread.id} className="mb-6">
+           <div className="flex items-center gap-2 mb-4">
+             <span className="text-purple-400">🧵</span>
+             <h4 className="text-lg font-semibold text-blue-300">
+               Thread {index + 1}
+             </h4>
+           </div>
+           <ThreadTree thread={thread} />
+         </div>
+       ))
+     ) : (
+       <p className="text-gray-500 text-center">No threads found</p>
+     )}
+   </div>
+  
+ </motion.div>  <motion.div
       key="step4"
       variants={stepVariants}
       initial="hidden"
@@ -332,40 +406,35 @@ function HomePage() {
       className="w-full p-6 bg-gray-800 rounded-xl shadow-lg backdrop-blur-lg bg-opacity-20 max-w-4xl"
     >
       <h3 className="text-2xl text-center font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-300">
-        Thread Analysis
+        News Articles
       </h3>
-      <div className="bg-gray-900 p-6 rounded-lg max-h-[70vh] overflow-y-auto custom-scrollbar">
-        {generatedScript.length > 0 ? (
-          generatedScript.map((thread, index) => (
-            <div key={thread.id} className="mb-6">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-purple-400">🧵</span>
-                <h4 className="text-lg font-semibold text-blue-300">
-                  Thread {index + 1}
-                </h4>
-              </div>
-              <ThreadTree thread={thread} />
-            </div>
-          ))
-        ) : (
-          <p className="text-gray-500 text-center">No threads found</p>
-        )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        {newsArticles.map((article, index) => (
+          <motion.div
+            key={index}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="bg-gray-900 border border-gray-700 text-white shadow-md rounded-xl p-4"
+          >
+            <h4 className="text-lg font-semibold mb-2">{article.title}</h4>
+            <p className="text-sm text-gray-400 mb-3">{article.source}</p>
+            <button
+              onClick={() => handleSelectArticle(article)}
+              className={`w-full px-4 py-2 rounded-lg text-white font-medium transition ${
+                selectedArticle?.title === article.title
+                  ? "bg-blue-500"
+                  : "bg-gray-700 hover:bg-gray-600"
+              }`}
+            >
+              {selectedArticle?.title === article.title ? "Selected" : "Select"}
+            </button>
+          </motion.div>
+        ))}
       </div>
-      <div className="mt-6 flex gap-4">
-        <button
-          className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-all hover:scale-105"
-          onClick={() => setStep(1)}
-        >
-          New Analysis
-        </button>
-        <button
-          className="flex-1 py-2 bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 text-white rounded-lg transition-all hover:scale-105"
-          onClick={() => navigator.clipboard.writeText(JSON.stringify(generatedScript, null, 2))}
-        >
-          Copy Analysis
-        </button>
-      </div>
-    </motion.div>
+    </motion.div><button onClick={()=>
+      setStep(1)
+    }>BACK</button></div>
   )}
         </AnimatePresence>
       </main>
