@@ -51,7 +51,7 @@ class TweetProcessor:
             return []
 
     async def process_thread(self, tweet_id: str, original_text: str, current_depth: int = 0) -> Optional[Dict]:
-        time.sleep(2)
+        time.sleep(5)
         if current_depth > self.max_depth:
             print(current_depth,self.max_depth)
             

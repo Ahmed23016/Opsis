@@ -151,11 +151,12 @@ async def search_tweets(topic: str = Query(..., description="The topic to search
     print(f"📌 Found {len(thread_starts)} tweets with thread emoji for topic '{topic}'.")
 
     tasks = []
-    for tweet in thread_starts:
-        try:
-            tasks.append(tweet_processor.process_thread(str(tweet.id), tweet.text))
-            logging.debug(f"Added processing task for Tweet ID {tweet.id}")
-        except Exception as e:
+    
+    try:
+        tweet=thread_starts[0]
+        tasks.append(tweet_processor.process_thread(str(tweet.id), tweet.text))
+        logging.debug(f"Added processing task for Tweet ID {tweet.id}")
+    except Exception as e:
             logging.error(f"Error creating task for Tweet ID {tweet.id}: {e}")
 
     threads = await asyncio.gather(*tasks)
