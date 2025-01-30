@@ -1,13 +1,11 @@
-# server.py
-
 import asyncio
 import os
 import json
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from fastapi import FastAPI, HTTPException, Query, BackgroundTasks, Body
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 
@@ -15,21 +13,16 @@ from twitter import (
     client,
     TweetProcessor,
     load_cookies,
-    save_cookies,
     perform_login_with_retries
 )
-from gen_kywrds import get_keywords
-
-
+from gen_kywrds import get_keywords  
 
 logging.basicConfig(
-    filename='twitter_bot.log', 
-    filemode='a',                
-    format='%(asctime)s - %(levelname)s - %(message)s', 
-    level=logging.INFO           
+    filename='twitter_bot.log',
+    filemode='a',
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    level=logging.DEBUG  
 )
-
-
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -37,10 +30,9 @@ load_dotenv()
 USERNAME = os.getenv("TWITTER_USERNAME")
 EMAIL = os.getenv("TWITTER_EMAIL")
 PASSWORD = os.getenv("TWITTER_PASSWORD")
-COOKIES_FILE = "cookies.json"  
-MAX_LOGIN_RETRIES = 3         
+COOKIES_FILE = "cookies.json"
+MAX_LOGIN_RETRIES = 3
 node_server_url = "http://localhost:3000/callback"
-
 
 app = FastAPI(
     title="Twitter Thread Search API",
@@ -56,11 +48,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
+class TweetNode(BaseModel):
+    text: str
+    id: str
+    child: Optional["TweetNode"] = None
+    
+    class Config:
+        orm_mode = True
+        allow_population_by_field_name = True
 
 class ThreadModel(BaseModel):
     thread_id: int
-    tweets: List[str]
+    tweets: TweetNode
 
 class SearchResponse(BaseModel):
     topic: str
@@ -70,11 +69,9 @@ class SearchResponse(BaseModel):
 class TopicRequest(BaseModel):
     topic: str
 
-
+TweetNode.update_forward_refs()
 
 tweet_processor = TweetProcessor()
-
-
 
 @app.on_event("startup")
 async def startup_event():
@@ -89,31 +86,31 @@ async def startup_event():
             print("🔥 Critical error: Failed to log in after multiple attempts.")
             import sys
             sys.exit(1)
+    logging.info("Application startup complete.")
+    print("INFO: Application startup complete.")
 
 @app.on_event("shutdown")
 async def shutdown_event():
     logging.info("Shutting down the Twitter Backend API...")
     print("🛑 Shutting down the Twitter Backend API...")
 
-
-def process_and_callback(topic: str, callback_url: str):
-
+def process_keywords(topic: str, callback_url: str):
     keywords = get_keywords(topic)  
-
     payload = {"topic": topic, "keywords": keywords}
+    process_and_callback(payload, callback_url)
+
+def process_and_callback(payload: object, callback_url: str):
     try:
         response = requests.post(callback_url, json=payload, timeout=10)
         response.raise_for_status()
-        logging.info(f"Successfully called back {callback_url} for topic '{topic}'.")
-        print(f"✅ Successfully called back {callback_url} for topic '{topic}'.")
+        logging.info(f"Successfully called back {callback_url} for topic '{payload['topic']}'.")
+        print(f"✅ Successfully called back {callback_url} for topic '{payload['topic']}'.")
     except requests.RequestException as e:
         logging.error(f"Failed to call back {callback_url}: {e}")
         print(f"⚠️ Failed to call back {callback_url}: {e}")
 
-
 @app.post("/search", response_model=SearchResponse)
 async def search_tweets(topic: str = Query(..., description="The topic to search for tweets.")):
-  
     SEARCH_QUERY = topic  
     THREAD_EMOJI = '🧵'     
 
@@ -138,30 +135,48 @@ async def search_tweets(topic: str = Query(..., description="The topic to search
         print(f"❌ No threads found for topic '{topic}'.")
         top_tweets = tweets[:3]
         for idx, tweet in enumerate(top_tweets, 1):
-            response_top_tweets.append(ThreadModel(thread_id=idx, tweets=[tweet.text]))
-            logging.info(f"Top Tweet #{idx} - ID: {tweet.id}, User: {tweet.user.name}, Content: {tweet.text}")
+            try:
+                tweet_node = TweetNode(text=tweet.text, id=str(tweet.id), child=None)
+                response_top_tweets.append(ThreadModel(
+                    thread_id=idx, 
+                    tweets=tweet_node
+                ))
+                logging.info(f"Top Tweet #{idx} - ID: {tweet.id}, Content: {tweet.text[:50]}...")
+            except Exception as e:
+                logging.error(f"Error creating top tweet model: {e}")
+                print(f"⚠️ Error creating top tweet model: {e}")
         return SearchResponse(topic=topic, threads=[], top_tweets=response_top_tweets)
 
     logging.info(f"📌 Found {len(thread_starts)} tweets with thread emoji for topic '{topic}'.")
     print(f"📌 Found {len(thread_starts)} tweets with thread emoji for topic '{topic}'.")
 
     tasks = []
-    for idx, tweet in enumerate(thread_starts, 1):
-        logging.info(f"🧵 Found thread starter: {tweet.id}")
-        print(f"🧵 Found thread starter: {tweet.id}")
-        print(f"📝 Content: {tweet.text[:60]}...")
-        logging.info(f"📝 Content: {tweet.text[:60]}...")
-        self_thread = []
-        tweet_processor.threads.append(self_thread)
-        tasks.append(tweet_processor.process_thread(tweet.id, tweet.text))
-    
-    await asyncio.gather(*tasks)
+    for tweet in thread_starts:
+        try:
+            tasks.append(tweet_processor.process_thread(str(tweet.id), tweet.text))
+            logging.debug(f"Added processing task for Tweet ID {tweet.id}")
+        except Exception as e:
+            logging.error(f"Error creating task for Tweet ID {tweet.id}: {e}")
 
-    for idx, thread in enumerate(tweet_processor.threads[-len(thread_starts):], 1):
-        response_threads.append(ThreadModel(thread_id=idx, tweets=thread))
-    
-    logging.info(f"📚 Collected {len(response_threads)} threads for topic '{topic}'.")
-    print(f"📚 Collected {len(response_threads)} threads for topic '{topic}'.")
+    threads = await asyncio.gather(*tasks)
+
+    for idx, thread in enumerate(filter(None, threads), 1):
+        try:
+            validated_thread = TweetNode(**thread)
+            response_threads.append(ThreadModel(
+                thread_id=idx,
+                tweets=validated_thread
+            ))
+            logging.info(f"Successfully processed thread {idx}")
+        except ValidationError as e:
+            logging.error(f"Validation error for thread {idx}: {e}")
+            print(f"⚠️ Validation error for thread {idx}: {e}")
+        except Exception as e:
+            logging.error(f"Error processing thread {idx}: {e}")
+            print(f"⚠️ Error processing thread {idx}: {e}")
+
+    logging.info(f"📚 Collected {len(response_threads)} valid threads for topic '{topic}'.")
+    print(f"📚 Collected {len(response_threads)} valid threads for topic '{topic}'.")
 
     return SearchResponse(topic=topic, threads=response_threads, top_tweets=None)
 
@@ -170,8 +185,7 @@ def queue_keywords(
     topic: str = Body(..., embed=True),  
     background_tasks: BackgroundTasks = None
 ):
-
-    background_tasks.add_task(process_and_callback, topic, node_server_url)
+    background_tasks.add_task(process_keywords, topic, node_server_url)
     logging.info(f"Queued keyword generation for topic '{topic}'.")
     print(f"🔄 Queued keyword generation for topic '{topic}'.")
     return {"message": f"Keywords generation scheduled for topic '{topic}'."}

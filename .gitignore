@@ -4,3 +4,6 @@ cache
 __pycache__
 node_modules
 .env
+*.json
+backend/cookies.json
+*.log
