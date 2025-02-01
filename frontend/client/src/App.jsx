@@ -196,7 +196,7 @@ function HomePage() {
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center relative">
-      <div className="absolute inset-0 bg-gradient-to-b from-gray-900 to-black opacity-80"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-900/30 to-blue-900/20 opacity-80"></div>
      
       <header className="w-full py-12 relative z-10">
     

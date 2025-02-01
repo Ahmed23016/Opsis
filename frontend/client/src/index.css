@@ -5,3 +5,32 @@
 html, body, #root {
   height: 100%;
 }
+
+.glass-panel {
+  @apply bg-gray-800/50 backdrop-blur-xl border border-gray-700/30 rounded-2xl;
+}
+
+.audio-player audio::-webkit-media-controls-panel {
+  @apply bg-gray-800;
+}
+
+.audio-player audio::-webkit-media-controls-play-button {
+  @apply invert;
+}
+
+.audio-player audio::-webkit-media-controls-timeline {
+  @apply bg-purple-600;
+}
+
+.loading-spinner {
+  @apply w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin;
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
