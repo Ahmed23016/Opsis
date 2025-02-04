@@ -196,7 +196,7 @@ function HomePage() {
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center relative">
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-900/30 to-blue-900/20 opacity-80"></div>
+      <div className="absolute inset-0 bg-zinc-900 "></div>
      
       <header className="w-full py-12 relative z-10">
     
@@ -206,7 +206,7 @@ function HomePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1 }}
         >
-          <h1 className="text-5xl md:text-6xl font-extrabold py-2 bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-400">
+          <h1 className="text-5xl md:text-6xl font-extrabold py-2 bg-clip-text text-transparent bg-gray-100">
             Opsis AI
           </h1>
         </motion.div>
@@ -221,7 +221,7 @@ function HomePage() {
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="w-full p-6 bg-gray-800 rounded-xl shadow-lg backdrop-blur-lg bg-opacity-20"
+              className="w-full p-6 bg-zinc-700 rounded-xl shadow-lg backdrop-blur-lg bg-opacity-20"
             >
               <div className="space-y-4">
                 <p className="text-center text-gray-300 text-lg">
@@ -230,12 +230,12 @@ function HomePage() {
                 <input
                   type="text"
                   placeholder="Type a topic..."
-                  className="w-full p-3 bg-gray-900 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full p-3 bg-zinc-900 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-100"
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
                 />
                 <button
-                  className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-all relative"
+                  className="w-full py-3 bg-gray-300 hover:bg-gray-100 text-zinc-800 font-semibold rounded-lg transition-all relative"
                   onClick={handleGenerate}
                   disabled={loading}
                 >
@@ -265,7 +265,7 @@ function HomePage() {
                   )}
                 </button>
                 <button
-  className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-all relative"
+  className="w-full py-3 bg-gray-300 hover:bg-gray-100 text-zinc-800 font-semibold rounded-lg transition-all relative"
   onClick={() => {
     setKeywords([topic]);  
     setSelectedIndex(0);  

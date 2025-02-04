@@ -10,21 +10,29 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@radix-ui/react-slot": "^1.1.1",
     "axios": "^1.7.9",
     "chart.js": "^4.4.7",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "framer-motion": "^12.0.6",
     "lightweight-charts": "^4.2.2",
+    "lucide-react": "^0.474.0",
     "react": "^18.3.1",
     "react-audio-player": "^0.17.0",
     "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.3.1",
     "react-player": "^2.16.0",
-    "react-router-dom": "^7.1.5"
+    "react-router-dom": "^7.1.5",
+    "tailwind-merge": "^3.0.1",
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
+    "@types/node": "^22.13.0",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
     "@vitejs/plugin-react-swc": "^3.5.0",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.17.0",
